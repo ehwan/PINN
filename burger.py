@@ -3,22 +3,36 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 
-class BurgerEquationNN:
+class BurgerEquationNN(torch.nn.Module):
   def __init__(self, nu):
+    super().__init__()
     self.nu = nu
+    # activation = torch.nn.Tanh()
+    activation = torch.nn.SiLU()
     self.net = torch.nn.Sequential(
       torch.nn.Linear(2, 20),
-      torch.nn.Tanh(),
+      activation,
       torch.nn.Linear(20, 20),
-      torch.nn.Tanh(),
+      activation,
       torch.nn.Linear(20, 20),
-      torch.nn.Tanh(),
+      activation,
       torch.nn.Linear(20, 20),
-      torch.nn.Tanh(),
+      activation,
+      torch.nn.Linear(20, 20),
+      activation,
+      torch.nn.Linear(20, 20),
+      activation,
+      torch.nn.Linear(20, 20),
+      activation,
+      torch.nn.Linear(20, 20),
+      activation,
+      torch.nn.Linear(20, 20),
+      activation,
       torch.nn.Linear(20,1)
     )
 
-    self.optimizer = torch.optim.Adam(self.net.parameters(), lr=0.001)
+    self.optimizer = torch.optim.Adam(self.net.parameters(), lr=0.005)
+    # self.optimizer = torch.optim.LBFGS(self.net.parameters(), lr=0.003)
 
   def forward(self, x, t):
     return self.net( torch.hstack( (x, t) ) )
@@ -43,24 +57,39 @@ class BurgerEquationNN:
 
 burger = BurgerEquationNN(0.01/np.pi)
 
-X0 = np.linspace(-1, 1, 100).reshape( -1, 1 )
-U0 = -np.sin(np.pi*X0)
+InitialX = np.linspace(-1, 1, 100)
+InitialT = np.zeros_like(InitialX)
+InitialU = -np.sin(np.pi*InitialX)
 
-X0 = torch.tensor( X0, dtype=torch.float32, requires_grad=True )
-U0 = torch.tensor( U0, dtype=torch.float32, requires_grad=True )
-T0 = torch.zeros_like(X0, requires_grad=True)
+BoundaryT = np.linspace(0, 10, 500)[1:]
+BoundaryX = np.ones_like(BoundaryT)
+BoundaryU = np.zeros_like(BoundaryT)
 
-BoundT = np.random.rand(100).reshape( -1, 1 )
-BoundT = torch.tensor( BoundT, dtype=torch.float32, requires_grad=True )
-BoundU = torch.zeros_like(BoundT, requires_grad=True)
-BoundX1 = torch.ones_like(BoundT, requires_grad=True)
-BoundX2 = -torch.ones_like(BoundT, requires_grad=True)
+BoundaryX = np.concatenate( (InitialX, BoundaryX, -BoundaryX), axis=0 )
+BoundaryT = np.concatenate( (InitialT, BoundaryT, BoundaryT) , axis=0)
+BoundaryU = np.concatenate( (InitialU, BoundaryU, BoundaryU) , axis=0)
 
-for i in range(10000):
-  print( burger.train( X0, T0, U0 ) )
-  print( burger.train( BoundX1, BoundT, BoundU ) )
-  print( burger.train( BoundX2, BoundT, BoundU ) )
+BoundaryX = torch.tensor( BoundaryX.reshape(-1,1), dtype=torch.float32, requires_grad=True )
+BoundaryT = torch.tensor( BoundaryT.reshape(-1,1), dtype=torch.float32, requires_grad=True )
+BoundaryU = torch.tensor( BoundaryU.reshape(-1,1), dtype=torch.float32, requires_grad=False )
 
+MeshX = np.linspace(-1, 1, 100)[1:-1]
+MeshT = np.linspace(0, 10, 500)[1:]
+MeshX, MeshT = np.meshgrid( MeshX, MeshT )
+MeshX = torch.tensor( MeshX.reshape(-1,1), dtype=torch.float32, requires_grad=True )
+MeshT = torch.tensor( MeshT.reshape(-1,1), dtype=torch.float32, requires_grad=True )
+
+Epochs = 500
+
+Loss1 = [0] * Epochs
+Loss2 = [0] * Epochs
+
+for i in range(Epochs):
+  print( i )
+  Loss1[i] = burger.train( BoundaryX, BoundaryT, BoundaryU )
+  Loss2[i] = burger.train( MeshX, MeshT )
+  print( Loss1[i] )
+  print( Loss2[i] )
 
 
 PlotX = np.linspace(-1, 1, 100)
@@ -69,7 +98,7 @@ PlotT = np.linspace(0, 5, 500)
 PlotT, PlotX = np.meshgrid( PlotT, PlotX )
 plotshape = PlotT.shape
 
-PlotU = burger.forward( 
+PlotU = burger(
   torch.tensor(PlotX.reshape(-1,1), dtype=torch.float32),
   torch.tensor(PlotT.reshape(-1,1), dtype=torch.float32)
 )
@@ -87,5 +116,14 @@ plt.plot( PlotX[:,int(500/5.0*0.25)], PlotU[:,int(500/5.0*0.25)], label='t=0.25'
 plt.plot( PlotX[:,int(500/5.0*0.50)], PlotU[:,int(500/5.0*0.50)], label='t=0.50' )
 plt.plot( PlotX[:,int(500/5.0*0.75)], PlotU[:,int(500/5.0*0.75)], label='t=0.75' )
 plt.plot( PlotX[:,int(500/5.0)], PlotU[:,int(500/5.0)], label='t=1.00' )
+plt.plot( PlotX[:,int(500/5.0*2)], PlotU[:,int(500/5.0*2)], label='t=2.00' )
+plt.legend()
+plt.show()
+
+Loss1 = np.array( Loss1 )
+Loss2 = np.array( Loss2 )
+
+plt.plot( range(Epochs), np.log(Loss1), label='Boundary' )
+plt.plot( range(Epochs), np.log(Loss2), label='Mesh' )
 plt.legend()
 plt.show()
