@@ -7,8 +7,8 @@ class BurgerEquationNN(torch.nn.Module):
   def __init__(self, nu):
     super().__init__()
     self.nu = nu
-    activation = torch.nn.Tanh()
-    # activation = torch.nn.SiLU()
+    # activation = torch.nn.Tanh()
+    activation = torch.nn.SiLU()
     # activation = torch.nn.LeakyReLU()
     self.net = torch.nn.Sequential(
       torch.nn.Linear(2, 20),
@@ -32,7 +32,7 @@ class BurgerEquationNN(torch.nn.Module):
       torch.nn.Linear(20,1)
     )
 
-    self.optimizer = torch.optim.Adam(self.net.parameters(), lr=0.003)
+    self.optimizer = torch.optim.Adam(self.net.parameters(), lr=0.005)
     # self.optimizer = torch.optim.LBFGS(self.net.parameters(), lr=0.003)
 
   def forward(self, x, t):
@@ -58,9 +58,9 @@ class BurgerEquationNN(torch.nn.Module):
 
 burger = BurgerEquationNN(0.01/np.pi)
 
-InitialCount = 100
-BoundaryCount = 200
-MeshCount = 500
+InitialCount = 256
+BoundaryCount = 256
+MeshCount = 256
 
 InitialT = torch.zeros( (InitialCount,1), dtype=torch.float32, requires_grad=True )
 
@@ -69,7 +69,7 @@ BoundaryX = np.concatenate( (BoundaryX, -BoundaryX) )
 BoundaryX = torch.tensor( BoundaryX, dtype=torch.float32, requires_grad=True )
 BoundaryU = torch.zeros_like( BoundaryX, dtype=torch.float32, requires_grad=False )
 
-Epochs = 20000
+Epochs = 10000
 
 Loss = [0]*Epochs
 
@@ -85,7 +85,7 @@ for i in range(Epochs):
   l = l + burger.loss( BoundaryX, BoundaryT, BoundaryU )
 
   MeshX = torch.rand( size=(MeshCount,1), dtype=torch.float32, requires_grad=True )*2 - 1.0
-  MeshT = torch.rand( size=(MeshCount,1), dtype=torch.float32, requires_grad=True )*10
+  MeshT = torch.rand( size=(MeshCount,1), dtype=torch.float32, requires_grad=True )*4
   l = l + burger.loss( MeshX, MeshT )
 
   print( i, l.item() )
