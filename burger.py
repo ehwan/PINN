@@ -7,8 +7,9 @@ class BurgerEquationNN(torch.nn.Module):
   def __init__(self, nu):
     super().__init__()
     self.nu = nu
-    # activation = torch.nn.Tanh()
-    activation = torch.nn.SiLU()
+    activation = torch.nn.Tanh()
+    # activation = torch.nn.SiLU()
+    # activation = torch.nn.LeakyReLU()
     self.net = torch.nn.Sequential(
       torch.nn.Linear(2, 20),
       activation,
@@ -31,7 +32,7 @@ class BurgerEquationNN(torch.nn.Module):
       torch.nn.Linear(20,1)
     )
 
-    self.optimizer = torch.optim.Adam(self.net.parameters(), lr=0.005)
+    self.optimizer = torch.optim.Adam(self.net.parameters(), lr=0.003)
     # self.optimizer = torch.optim.LBFGS(self.net.parameters(), lr=0.003)
 
   def forward(self, x, t):
@@ -57,39 +58,42 @@ class BurgerEquationNN(torch.nn.Module):
 
 burger = BurgerEquationNN(0.01/np.pi)
 
-InitialX = np.linspace(-1, 1, 100)
-InitialT = np.zeros_like(InitialX)
-InitialU = -np.sin(np.pi*InitialX)
+InitialCount = 100
+BoundaryCount = 200
+MeshCount = 500
 
-BoundaryT = np.linspace(0, 10, 500)[1:]
-BoundaryX = np.ones_like(BoundaryT)
-BoundaryU = np.zeros_like(BoundaryT)
+InitialT = torch.zeros( (InitialCount,1), dtype=torch.float32, requires_grad=True )
 
-BoundaryX = np.concatenate( (InitialX, BoundaryX, -BoundaryX), axis=0 )
-BoundaryT = np.concatenate( (InitialT, BoundaryT, BoundaryT) , axis=0)
-BoundaryU = np.concatenate( (InitialU, BoundaryU, BoundaryU) , axis=0)
+BoundaryX = np.ones( (BoundaryCount//2,1) )
+BoundaryX = np.concatenate( (BoundaryX, -BoundaryX) )
+BoundaryX = torch.tensor( BoundaryX, dtype=torch.float32, requires_grad=True )
+BoundaryU = torch.zeros_like( BoundaryX, dtype=torch.float32, requires_grad=False )
 
-BoundaryX = torch.tensor( BoundaryX.reshape(-1,1), dtype=torch.float32, requires_grad=True )
-BoundaryT = torch.tensor( BoundaryT.reshape(-1,1), dtype=torch.float32, requires_grad=True )
-BoundaryU = torch.tensor( BoundaryU.reshape(-1,1), dtype=torch.float32, requires_grad=False )
+Epochs = 20000
 
-MeshX = np.linspace(-1, 1, 100)[1:-1]
-MeshT = np.linspace(0, 10, 500)[1:]
-MeshX, MeshT = np.meshgrid( MeshX, MeshT )
-MeshX = torch.tensor( MeshX.reshape(-1,1), dtype=torch.float32, requires_grad=True )
-MeshT = torch.tensor( MeshT.reshape(-1,1), dtype=torch.float32, requires_grad=True )
-
-Epochs = 500
-
-Loss1 = [0] * Epochs
-Loss2 = [0] * Epochs
+Loss = [0]*Epochs
 
 for i in range(Epochs):
-  print( i )
-  Loss1[i] = burger.train( BoundaryX, BoundaryT, BoundaryU )
-  Loss2[i] = burger.train( MeshX, MeshT )
-  print( Loss1[i] )
-  print( Loss2[i] )
+  l = 0
+  burger.optimizer.zero_grad()
+
+  InitialX = torch.rand( size=(InitialCount,1), dtype=torch.float32, requires_grad=True )*2 - 1.0
+  InitialU = -torch.sin(np.pi*InitialX)
+  l = l + burger.loss( InitialX, InitialT, InitialU )
+
+  BoundaryT = torch.rand( size=(BoundaryCount,1), dtype=torch.float32, requires_grad=True )*10
+  l = l + burger.loss( BoundaryX, BoundaryT, BoundaryU )
+
+  MeshX = torch.rand( size=(MeshCount,1), dtype=torch.float32, requires_grad=True )*2 - 1.0
+  MeshT = torch.rand( size=(MeshCount,1), dtype=torch.float32, requires_grad=True )*10
+  l = l + burger.loss( MeshX, MeshT )
+
+  print( i, l.item() )
+  l.backward()
+  burger.optimizer.step()
+
+  Loss[i] = l.item()
+
 
 
 PlotX = np.linspace(-1, 1, 100)
@@ -120,10 +124,10 @@ plt.plot( PlotX[:,int(500/5.0*2)], PlotU[:,int(500/5.0*2)], label='t=2.00' )
 plt.legend()
 plt.show()
 
-Loss1 = np.array( Loss1 )
-Loss2 = np.array( Loss2 )
+Loss = np.array( Loss )
 
-plt.plot( range(Epochs), np.log(Loss1), label='Boundary' )
-plt.plot( range(Epochs), np.log(Loss2), label='Mesh' )
-plt.legend()
+plt.plot( Loss )
+plt.xlabel( 'Epochs' )
+plt.yscale( 'log' )
+plt.ylabel( 'Loss' )
 plt.show()
