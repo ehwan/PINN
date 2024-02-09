@@ -11,6 +11,7 @@ $\nu$ = 1
 ## Wave Equation
 
 $c=1$
+
 ![](wave/imshow.png)
 ![](wave/plot.png)
 
