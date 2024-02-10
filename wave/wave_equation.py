@@ -22,6 +22,10 @@ class WaveEquationNN:
       activation,
       torch.nn.Linear(20, 20),
       activation,
+      torch.nn.Linear(20, 20),
+      activation,
+      torch.nn.Linear(20, 20),
+      activation,
       torch.nn.Linear(20,1)
     )
 
@@ -42,32 +46,16 @@ class WaveEquationNN:
       loss = loss + torch.mean( (u - u_answer)**2 )
     return loss
 
-  def train( self, x, t, u_answer=None ):
-    self.optimizer.zero_grad()
-    loss = self.loss( x, t, u_answer )
-    loss.backward()
-    self.optimizer.step()
-    return loss.item()
-
 wave = WaveEquationNN(1)
-try:
-  wave.net.load_state_dict( torch.load('wave_equation.pt') )
-except:
-  pass
 
-T = 5.0
-InitialCount = 256
-BoundaryCount = 256
-MeshCount = 256
+T1 = 4.0
+N1 = 64
+T2 = 8.0
+N2 = 64
 
-InitialT = torch.zeros( (InitialCount,1), dtype=torch.float32, requires_grad=True )
+BoundaryN = 128
 
-BoundaryX = np.ones( (BoundaryCount//2,1) )
-BoundaryX = np.concatenate( (BoundaryX, -BoundaryX) )
-BoundaryX = torch.tensor( BoundaryX, dtype=torch.float32, requires_grad=True )
-BoundaryU = torch.zeros_like( BoundaryX, dtype=torch.float32, requires_grad=False )
-
-Epochs = 10000
+Epochs = 25000
 
 Loss = [0]*Epochs
 
@@ -75,16 +63,20 @@ for i in range(Epochs):
   l = 0
   wave.optimizer.zero_grad()
 
-  InitialX = torch.rand( size=(InitialCount,1), dtype=torch.float32, requires_grad=True )*2 - 1.0
-  InitialU = torch.sin(np.pi*InitialX)
-  l = l + wave.loss( InitialX, InitialT, InitialU )
+  DataX1 = torch.rand( size=(N1,1), dtype=torch.float32, requires_grad=True )*2 - 1.0
+  DataT1 = torch.rand( size=(N1,1), dtype=torch.float32, requires_grad=True )*T1
+  DataU1 = torch.sin(np.pi*DataX1)*torch.cos(np.pi*DataT1)
+  l = l + wave.loss( DataX1, DataT1, DataU1 )
 
-  BoundaryT = torch.rand( size=(BoundaryCount,1), dtype=torch.float32, requires_grad=True )*T
+  DataX2 = torch.rand( size=(N2,1), dtype=torch.float32, requires_grad=True )*2 - 1.0
+  DataT2 = torch.rand( size=(N2,1), dtype=torch.float32, requires_grad=True )*(T2-T1) + T1
+  l = l + 2*wave.loss( DataX2, DataT2 )
+
+  BoundaryT = torch.rand( size=(BoundaryN*2,1), dtype=torch.float32, requires_grad=True )*T2
+  BoundaryX = torch.ones( size=(BoundaryN,1), dtype=torch.float32, requires_grad=True )
+  BoundaryX = torch.vstack( (BoundaryX, -BoundaryX) )
+  BoundaryU = torch.zeros_like(BoundaryX)
   l = l + wave.loss( BoundaryX, BoundaryT, BoundaryU )
-
-  MeshX = torch.rand( size=(MeshCount,1), dtype=torch.float32, requires_grad=True )*2 - 1.0
-  MeshT = torch.rand( size=(MeshCount,1), dtype=torch.float32, requires_grad=True )*T
-  l = l + wave.loss( MeshX, MeshT )
 
   print( i, l.item() )
   l.backward()
@@ -109,19 +101,10 @@ PlotU = wave.forward(
 
 PlotU = PlotU.detach().numpy().reshape( plotshape )
 
-plt.imshow( PlotU, aspect='auto', extent=[0, 5, -1, 1] )
+plt.imshow( PlotU, aspect='auto', extent=[0, 10, -1, 1], vmin=-1.5, vmax=1.5 )
 plt.xlabel( 't' )
 plt.ylabel( 'x' )
 plt.colorbar()
-plt.show()
-
-plt.plot( PlotX[:,0], PlotU[:,0], label='t=0' )
-plt.plot( PlotX[:,int(500/10.0*0.25)], PlotU[:,int(500/10.0*(2+0.25))], label='t=2.25' )
-plt.plot( PlotX[:,int(500/10.0*0.50)], PlotU[:,int(500/10.0*(2+0.50))], label='t=2.50' )
-plt.plot( PlotX[:,int(500/10.0*0.75)], PlotU[:,int(500/10.0*(2+0.75))], label='t=2.75' )
-plt.plot( PlotX[:,int(500/10.0)], PlotU[:,int(500/10.0*3)], label='t=3.00' )
-plt.plot( PlotX[:,int(500/10.0*2)], PlotU[:,int(500/10.0*4)], label='t=4.00' )
-plt.legend()
 plt.show()
 
 Loss = np.array(Loss)
