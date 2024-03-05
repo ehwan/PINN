@@ -21,10 +21,225 @@ U0 = 1.0
 N_Mesh = 512
 
 # Adam Optimizer traning epochs
-Epochs = 1000
+Epochs = 2000
 
 # L-BFGS Optimizer max iterations
-MaxIter = 1000
+MaxIter = 5000
+
+class ABlock:
+  def __init__(self, activation):
+    self.activation = activation
+    N = 16
+    self.net = torch.nn.Sequential(
+      torch.nn.Linear(2,N),
+      self.activation,
+      torch.nn.Linear(N, N),
+      self.activation,
+      torch.nn.Linear(N, N),
+      self.activation,
+      torch.nn.Linear(N, N),
+      self.activation,
+      torch.nn.Linear(N, N),
+      self.activation,
+      torch.nn.Linear(N, N),
+      self.activation,
+      torch.nn.Linear(N, 1),
+    )
+    Batch = 64
+    Lins = np.linspace(0,1,Batch)
+    Ones = np.ones( Batch )
+    Zeros = np.zeros( Batch )
+    self.X_Left = torch.tensor( Zeros, dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+    self.Y_Left = torch.tensor( Lins, dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+    self.X_Right = torch.tensor( Ones, dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+    self.Y_Right = torch.tensor( Lins, dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+    self.X_Bottom = torch.tensor( Lins, dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+    self.Y_Bottom = torch.tensor( Zeros, dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+    self.X_Top = torch.tensor( Lins, dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+    self.Y_Top = torch.tensor( Ones, dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+    self.X_half = torch.tensor( [0.5], dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+    self.Y_half = torch.tensor( [0.5], dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+
+  def forward( self, input ):
+    return self.net(input)
+
+  def function( self, x, y ):
+    res = self.forward( torch.hstack((x,y)) )
+
+    res_x = torch.autograd.grad(res, x, grad_outputs=torch.ones_like(res), create_graph=True)[0]
+    res_y = torch.autograd.grad(res, y, grad_outputs=torch.ones_like(res), create_graph=True)[0]
+    return res, res_x, res_y
+
+  def loss( self ):
+    l = 0
+
+    res, res_x, res_y = self.function( self.X_Left, self.Y_Left )
+    l = l + torch.mean( res**2 + res_x**2 + res_y**2 )
+    res, res_x, res_y = self.function( self.X_Right, self.Y_Right )
+    l = l + torch.mean( res**2 + res_x**2 + res_y**2 )
+    res, res_x, res_y = self.function( self.X_Bottom, self.Y_Bottom )
+    l = l + torch.mean( res**2 + res_x**2 + res_y**2 )
+    res, res_x, res_y = self.function( self.X_Top, self.Y_Top )
+    l = l + torch.mean( res**2 + res_x**2 + res_y**2 )
+    res, res_x, res_y = self.function( self.X_half, self.Y_half )
+    l = l + torch.mean( (res-1)**2 )
+
+    return l
+
+  def train( self ):
+    adam = torch.optim.Adam( self.net.parameters(), lr=0.005 )
+    print( 'training ABlock' )
+    for i in range(10000):
+      l = self.loss()
+      adam.zero_grad()
+      l.backward()
+      adam.step()
+      if i % 1000 == 0:
+        print( i, l.item() )
+class BBlock:
+  def __init__(self, activation):
+    self.activation = activation
+    N = 16
+    self.net = torch.nn.Sequential(
+      torch.nn.Linear(2,N),
+      self.activation,
+      torch.nn.Linear(N, N),
+      self.activation,
+      torch.nn.Linear(N, N),
+      self.activation,
+      torch.nn.Linear(N, N),
+      self.activation,
+      torch.nn.Linear(N, N),
+      self.activation,
+      torch.nn.Linear(N, N),
+      self.activation,
+      torch.nn.Linear(N, 1),
+    )
+    Batch = 64
+    Lins = np.linspace(0,1,Batch)
+    Ones = np.ones( Batch )
+    Zeros = np.zeros( Batch )
+    self.X_Left = torch.tensor( Zeros, dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+    self.Y_Left = torch.tensor( Lins, dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+    self.X_Right = torch.tensor( Ones, dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+    self.Y_Right = torch.tensor( Lins, dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+    self.X_Bottom = torch.tensor( Lins, dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+    self.Y_Bottom = torch.tensor( Zeros, dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+    self.X_Top = torch.tensor( Lins, dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+    self.Y_Top = torch.tensor( Ones, dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+    self.X_half = torch.tensor( [0.5], dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+    self.Y_half = torch.tensor( [0.5], dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+
+  def forward( self, input ):
+    return self.net(input)
+
+  def function( self, x, y ):
+    res = self.forward( torch.hstack((x,y)) )
+
+    res_x = torch.autograd.grad(res, x, grad_outputs=torch.ones_like(res), create_graph=True)[0]
+    res_y = torch.autograd.grad(res, y, grad_outputs=torch.ones_like(res), create_graph=True)[0]
+    return res, res_x, res_y
+
+  def loss( self ):
+    l = 0
+
+    res, res_x, res_y = self.function( self.X_Left, self.Y_Left )
+    l = l + torch.mean( res_x**2 + res_y**2 )
+    res, res_x, res_y = self.function( self.X_Right, self.Y_Right )
+    l = l + torch.mean( res_x**2 + res_y**2 )
+    res, res_x, res_y = self.function( self.X_Bottom, self.Y_Bottom )
+    l = l + torch.mean( res_x**2 + res_y**2 )
+    res, res_x, res_y = self.function( self.X_Top, self.Y_Top )
+    l = l + torch.mean( res_x**2 + (res_y-1)**2 )
+    res, res_x, res_y = self.function( self.X_half, self.Y_half )
+    l = l + torch.mean( (res-1)**2 )
+
+    return l
+
+  def train( self ):
+    adam = torch.optim.Adam( self.net.parameters(), lr=0.005 )
+    print( 'training BBlock' )
+    for i in range(10000):
+      l = self.loss()
+      adam.zero_grad()
+      l.backward()
+      adam.step()
+      if i % 1000 == 0:
+        print( i, l.item() )
+
+class CBlock:
+  def __init__(self, activation):
+    self.activation = activation
+    N = 16
+    self.net = torch.nn.Sequential(
+      torch.nn.Linear(2,N),
+      self.activation,
+      torch.nn.Linear(N, N),
+      self.activation,
+      torch.nn.Linear(N, N),
+      self.activation,
+      torch.nn.Linear(N, N),
+      self.activation,
+      torch.nn.Linear(N, N),
+      self.activation,
+      torch.nn.Linear(N, N),
+      self.activation,
+      torch.nn.Linear(N, 1),
+    )
+    Batch = 64
+    Lins = np.linspace(0,1,Batch)
+    Ones = np.ones( Batch )
+    Zeros = np.zeros( Batch )
+    self.X_Left = torch.tensor( Zeros, dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+    self.Y_Left = torch.tensor( Lins, dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+    self.X_Right = torch.tensor( Ones, dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+    self.Y_Right = torch.tensor( Lins, dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+    self.X_Bottom = torch.tensor( Lins, dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+    self.Y_Bottom = torch.tensor( Zeros, dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+    self.X_Top = torch.tensor( Lins, dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+    self.Y_Top = torch.tensor( Ones, dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+    self.X_half = torch.tensor( [0.5], dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+    self.Y_half = torch.tensor( [0.5], dtype=torch.float32, requires_grad=True ).reshape( -1, 1 )
+
+  def forward( self, input ):
+    return self.net(input)
+
+  def function( self, x, y ):
+    res = self.forward( torch.hstack((x,y)) )
+
+    res_x = torch.autograd.grad(res, x, grad_outputs=torch.ones_like(res), create_graph=True)[0]
+    res_y = torch.autograd.grad(res, y, grad_outputs=torch.ones_like(res), create_graph=True)[0]
+    return res, res_x, res_y
+
+  def loss( self ):
+    l = 0
+
+    res, res_x, res_y = self.function( self.X_Left, self.Y_Left )
+    l = l + torch.mean( res**2 + res_x**2 )
+    res, res_x, res_y = self.function( self.X_Right, self.Y_Right )
+    l = l + torch.mean( res**2 + res_x**2 )
+    res, res_x, res_y = self.function( self.X_Bottom, self.Y_Bottom )
+    l = l + torch.mean( res**2 + res_y**2 )
+    res, res_x, res_y = self.function( self.X_Top, self.Y_Top )
+    l = l + torch.mean( res**2 + res_y**2 )
+    res, res_x, res_y = self.function( self.X_half, self.Y_half )
+    l = l + torch.mean( (res-1)**2 )
+
+    return l
+
+  def train( self ):
+    adam = torch.optim.Adam( self.net.parameters(), lr=0.005 )
+    print( 'training CBlock' )
+    for i in range(10000):
+      l = self.loss()
+      adam.zero_grad()
+      l.backward()
+      adam.step()
+      if i % 1000 == 0:
+        print( i, l.item() )
+
+
+
 
 class ResidualBlock(torch.nn.Module):
   def __init__(self, activation, inout, middle):
@@ -44,24 +259,42 @@ class LidDrivenCavityNN(torch.nn.Module):
     super(LidDrivenCavityNN, self).__init__()
     self.nu = nu
     self.init_layers()
+    self.ablock = ABlock( torch.nn.SiLU() )
+    self.ablock.train()
+    self.bblock = BBlock( torch.nn.SiLU() )
+    self.bblock.train()
+    self.cblock = CBlock( torch.nn.SiLU() )
+    self.cblock.train()
 
   def init_layers( self ):
     activation = torch.nn.SiLU()
     self.net = torch.nn.Sequential(
       torch.nn.Linear(2, 64),
       activation,
-      ResidualBlock(activation, 64, 64),
+      torch.nn.Linear(64,64),
       activation,
-      ResidualBlock(activation, 64, 64),
+      torch.nn.Linear(64,64),
+      activation,
+      torch.nn.Linear(64,64),
+      activation,
+      torch.nn.Linear(64,64),
+      activation,
+      torch.nn.Linear(64,64),
       activation,
       torch.nn.Linear(64,2)
     )
 
   def init_train_inputs( self, N_Mesh ):
-    self.N_Mesh = N_Mesh
+    Xs = np.linspace(0, 1, 32)
+    Ys = np.linspace(0, 1, 32)
+    Xs, Ys = np.meshgrid( Xs, Ys )
+    self.X_Mesh = torch.tensor( Xs.reshape(-1,1), dtype=torch.float32, requires_grad=True )
+    self.Y_Mesh = torch.tensor( Ys.reshape(-1,1), dtype=torch.float32, requires_grad=True )
 
-    self.X_Mesh = torch.rand( size=(N_Mesh,1), dtype=torch.float32, requires_grad=True )
-    self.Y_Mesh = torch.rand( size=(N_Mesh,1), dtype=torch.float32, requires_grad=True )
+    # self.N_Mesh = N_Mesh
+
+    # self.X_Mesh = torch.rand( size=(N_Mesh,1), dtype=torch.float32, requires_grad=True )
+    # self.Y_Mesh = torch.rand( size=(N_Mesh,1), dtype=torch.float32, requires_grad=True )
 
   def forward( self, input ):
     return self.net( input )
@@ -71,12 +304,12 @@ class LidDrivenCavityNN(torch.nn.Module):
     p = res[:,0:1]
     psi = res[:,1:2]
 
-    A = (x*(1-x)*y*(1-y))**2
-    Y_EPSILON = 1e-3
-    B = torch.where( y > 1-Y_EPSILON, (y-(1-Y_EPSILON))*U0, 0 )
+    A = self.ablock.forward( torch.hstack((x,y)) )
+    B = self.bblock.forward( torch.hstack((x,y)) )
+    C = self.cblock.forward( torch.hstack((x,y)) )
 
     # force boundary condition
-    p = A*p
+    p = C*p
     psi = A*psi + B
 
     u = torch.autograd.grad(psi, y, grad_outputs=torch.ones_like(psi), create_graph=True)[0]
@@ -97,7 +330,7 @@ class LidDrivenCavityNN(torch.nn.Module):
     fx = u*ux + v*uy + px - self.nu*(uxx + uyy)
     fy = u*vx + v*vy + py - self.nu*(vxx + vyy)
 
-    return u, v, p, fx, fy, psi, px, py
+    return u, v, p, fx, fy, psi, px, py, A, B, C
 
   def loss( self ):
     l = 0
@@ -112,12 +345,12 @@ loss = []
 
 def train_with_adam( nn, epochs ):
   print( 'Training with Adam' )
-  adam = torch.optim.Adam( nn.parameters(), lr=0.005 )
+  adam = torch.optim.Adam( nn.parameters(), lr=0.003 )
 
   loss = [0] * epochs
+  nn.init_train_inputs( N_Mesh )
   for i in range(epochs):
     adam.zero_grad()
-    nn.init_train_inputs( N_Mesh )
     l = nn.loss()
     l.backward()
     adam.step()
@@ -132,7 +365,7 @@ def train_with_lbfgs( nn, max_iter ):
   print( 'Training with L-BFGS' )
   lbfgs = torch.optim.LBFGS( nn.parameters(), lr=0.8, max_iter=max_iter, max_eval=None, tolerance_grad=1e-05, tolerance_change=1e-09, history_size=100, line_search_fn='strong_wolfe' )
 
-  nn.init_train_inputs( N_Mesh*10 )
+  nn.init_train_inputs( N_Mesh )
   global lbfgs_iteration
 
   lbfgs_iteration = 0
@@ -188,7 +421,7 @@ def save_plots( nn, dirname, loss ):
   PlotX, PlotY = np.meshgrid( PlotX, PlotY )
   plotshape = PlotX.shape
 
-  u, v, p, fx, fy, psi, *_ = nn.function(
+  u, v, p, fx, fy, psi, px, py, A, B, C = nn.function(
     torch.tensor(PlotX.reshape(-1,1), dtype=torch.float32, requires_grad=True),
     torch.tensor(PlotY.reshape(-1,1), dtype=torch.float32, requires_grad=True)
   )
@@ -198,6 +431,9 @@ def save_plots( nn, dirname, loss ):
   fx = fx.detach().numpy().reshape( plotshape )
   fy = fy.detach().numpy().reshape( plotshape )
   psi = psi.detach().numpy().reshape( plotshape )
+  A = A.detach().numpy().reshape( plotshape )
+  B = B.detach().numpy().reshape( plotshape )
+  C = C.detach().numpy().reshape( plotshape )
 
   plt.imshow( p, origin='lower', extent=(0,1,0,1) )
   plt.xlabel( 'x' )
@@ -232,6 +468,33 @@ def save_plots( nn, dirname, loss ):
   plt.colorbar()
   plt.title( 'psi' )
   plt.savefig( dirname+'/psi.png' )
+  plt.clf()
+  plt.cla()
+
+  plt.imshow( A, origin='lower', extent=(0,1,0,1) )
+  plt.xlabel( 'x' )
+  plt.ylabel( 'y' )
+  plt.colorbar()
+  plt.title( 'A' )
+  plt.savefig( dirname+'/A.png' )
+  plt.clf()
+  plt.cla()
+
+  plt.imshow( B, origin='lower', extent=(0,1,0,1) )
+  plt.xlabel( 'x' )
+  plt.ylabel( 'y' )
+  plt.colorbar()
+  plt.title( 'B' )
+  plt.savefig( dirname+'/B.png' )
+  plt.clf()
+  plt.cla()
+
+  plt.imshow( C, origin='lower', extent=(0,1,0,1) )
+  plt.xlabel( 'x' )
+  plt.ylabel( 'y' )
+  plt.colorbar()
+  plt.title( 'C' )
+  plt.savefig( dirname+'/C.png' )
   plt.clf()
   plt.cla()
 
