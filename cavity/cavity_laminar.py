@@ -63,9 +63,6 @@ class LidDrivenCavityNN(torch.nn.Module):
     self.X_Mesh = torch.rand( size=(N_Mesh,1), dtype=torch.float32, requires_grad=True )
     self.Y_Mesh = torch.rand( size=(N_Mesh,1), dtype=torch.float32, requires_grad=True )
 
-    self.X_Upper = torch.rand( size=(N_Mesh,1), dtype=torch.float32, requires_grad=True )
-    self.Y_Upper = torch.ones( size=(N_Mesh,1), dtype=torch.float32, requires_grad=True )
-
   def forward( self, input ):
     return self.net( input )
 
@@ -74,9 +71,13 @@ class LidDrivenCavityNN(torch.nn.Module):
     p = res[:,0:1]
     psi = res[:,1:2]
 
+    A = (x*(1-x)*y*(1-y))**2
+    Y_EPSILON = 1e-3
+    B = torch.where( y > 1-Y_EPSILON, (y-(1-Y_EPSILON))*U0, 0 )
+
     # force boundary condition
-    psi = ((x*(1-x))**2 * y*y * (1-y) )*psi
-    p = (x*(1-x)*y*(1-y))**2 * p
+    p = A*p
+    psi = A*psi + B
 
     u = torch.autograd.grad(psi, y, grad_outputs=torch.ones_like(psi), create_graph=True)[0]
     v = -torch.autograd.grad(psi, x, grad_outputs=torch.ones_like(psi), create_graph=True)[0]
@@ -105,11 +106,6 @@ class LidDrivenCavityNN(torch.nn.Module):
     u, v, p, fx, fy, psi, *_ = self.function( self.X_Mesh, self.Y_Mesh )
     l = l + torch.mean( (fx**2 + fy**2) )
 
-    # Upper Boundary
-    u, v, p, fx, fy, psi, *_ = self.function( self.X_Upper, self.Y_Upper )
-    l = l + torch.mean( (u - U0)**2 )
-    l = l + torch.mean( (fx**2 + fy**2) )
-
     return l
 
 loss = []
@@ -136,7 +132,7 @@ def train_with_lbfgs( nn, max_iter ):
   print( 'Training with L-BFGS' )
   lbfgs = torch.optim.LBFGS( nn.parameters(), lr=0.8, max_iter=max_iter, max_eval=None, tolerance_grad=1e-05, tolerance_change=1e-09, history_size=100, line_search_fn='strong_wolfe' )
 
-  nn.init_train_inputs( N_Mesh*100 )
+  nn.init_train_inputs( N_Mesh*10 )
   global lbfgs_iteration
 
   lbfgs_iteration = 0
