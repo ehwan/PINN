@@ -115,6 +115,7 @@ struct LidDrivenCavityLBM
     std::cout << "Re: " << re << "\n";
     std::cout << "U0: " << u0 << "\n";
     std::cout << "tau: " << tau << "\n";
+    std::cout << "dt: " << dt << "\n";
 
     for (int y = 0; y < width; ++y)
     {
@@ -286,6 +287,8 @@ int main(int argc, char** argv)
   // u0 = 1/ (dx / dt) < 0.25
   // dt < 0.25 * dx
   // W = 200 can cover Re \in (20, 1000) // kolmogorov scale
+
+  // dt = 0.25 * 0.005 = 1/200 / 4 = 1/800
 
   cavity.init(200, 2000.0, 0.25 * 0.005);
 
