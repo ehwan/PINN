@@ -34,10 +34,12 @@ stepper = CavityLatentStepper()
 optimizer = torch.optim.Adam( stepper.parameters(), lr=0.002 )
 for epoch in range(Epochs):
   print( 'Epoch: {}'.format(epoch) )
+  shuffled_indices = torch.randperm( latents.shape[0]-1 )
   for batch in range(4):
     print( 'batch: {}'.format(batch) )
-    input_latents = latents[batch*BatchSize:(batch+1)*BatchSize]
-    output_latents = latents[batch*BatchSize+1:(batch+1)*BatchSize+1]
+    batch_indices = shuffled_indices[batch*BatchSize:(batch+1)*BatchSize]
+    input_latents = latents[batch_indices]
+    output_latents = latents[batch_indices+1]
 
     predict_output = stepper( input_latents )
     loss = torch.nn.functional.mse_loss( predict_output, output_latents )
