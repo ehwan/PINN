@@ -21,10 +21,12 @@ class CavityLatentStepper(torch.nn.Module):
 
 
 re100raw = data_loader.load_file( 'trains/re100.dat' )
+print( 'shape(re100raw): ', re100raw.shape )
 encoder = autoencoder.CavityAutoEncoder()
 encoder.load_state_dict( torch.load( 're100ae.pt' ) )
 
 latents = encoder.encoder( re100raw )
+print( 'shape(latents): ', latents.shape )
 
 Epochs = 100
 BatchSize = 20
@@ -38,10 +40,14 @@ for epoch in range(Epochs):
   for batch in range(4):
     print( 'batch: {}'.format(batch) )
     batch_indices = shuffled_indices[batch*BatchSize:(batch+1)*BatchSize]
-    input_latents = latents[batch_indices]
-    output_latents = latents[batch_indices+1]
+    print( 'indices: ', batch_indices )
+    input_latents = latents[batch_indices].clone().detach()
+    output_latents = latents[batch_indices+1].clone().detach()
+    print( 'shape(input_latents): ', input_latents.shape )
+    print( 'shape(output_latents): ', output_latents.shape )
 
     predict_output = stepper( input_latents )
+    print( 'shape(predict_output): ', predict_output.shape )
     loss = torch.nn.functional.mse_loss( predict_output, output_latents )
     print( loss.item() )
     optimizer.zero_grad()
