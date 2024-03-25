@@ -129,6 +129,7 @@ for epoch in range(Epochs):
     loss.backward()
     optimizer.step()
 
+torch.save( autoencoder.state_dict(), 're100ae.pt' )
 
 # test_input = torch.rand(1, 3, 256, 256)
 # latent = nn.encoder( test_input )
