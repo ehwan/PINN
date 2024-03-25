@@ -2,11 +2,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import struct
+import os
 
-f = open( 'out.dat', 'rb' )
+f = open( 'trains/re1400.dat', 'rb' )
+f.seek( 4*3*256*256*100, os.SEEK_SET )
 
-W = 200
-H = 200
+W = 256
+H = 256
 
 Vx = np.zeros( (H,W) )
 Vy = np.zeros( (H,W) )

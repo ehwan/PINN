@@ -69,6 +69,7 @@ struct LidDrivenCavityLBM
   std::vector<vec> velocity;
   std::vector<Eigen::Vector<float, 2>> vel_dim;
   std::vector<scalar_type> density;
+  std::vector<float> fdensity;
 
   template <typename T>
   T& at(std::vector<T>& v, int x, int y)
@@ -103,6 +104,7 @@ struct LidDrivenCavityLBM
     velocity.resize(wh);
     density.resize(wh);
     vel_dim.resize(wh);
+    fdensity.resize(wh);
 
     scalar_type nu = 1.0 / Re;
     // nondim
@@ -132,6 +134,7 @@ struct LidDrivenCavityLBM
           at(velocity, x, y) = vec(0, 0);
         }
         at(density, x, y) = 1;
+        at(fdensity, x, y) = 1;
         at(f, x, y) = equilibrium(at(velocity, x, y), at(density, x, y));
       }
     }
@@ -157,6 +160,7 @@ struct LidDrivenCavityLBM
       for (int x = 0; x < width; ++x)
       {
         at(vel_dim, x, y) = get_velocity(x, y).cast<float>();
+        at(fdensity, x, y) = (float)at(density, x, y);
       }
     }
     // streaming  f -> ftemp
@@ -283,22 +287,41 @@ struct LidDrivenCavityLBM
 
 int main(int argc, char** argv)
 {
-  LidDrivenCavityLBM cavity;
   // u0 = 1/ (dx / dt) < 0.25
   // dt < 0.25 * dx
   // W = 200 can cover Re \in (20, 1000) // kolmogorov scale
 
   // dt = 0.25 * 0.005 = 1/200 / 4 = 1/800
+  std::vector<int> Res = { 30, 40, 50, 60, 70, 80, 100 };
+  Res.insert(Res.end(),
+             { 150, 200, 250, 300, 350, 400, 500, 600, 700, 800, 900, 1000 });
+  Res.insert(Res.end(), { 1200, 1400, 1600, 1800, 2000 });
 
-  cavity.init(200, 2000.0, 0.25 * 0.005);
-
-  for (int i = 0; i < 1000; ++i)
+  for (int re : Res)
   {
-    cavity.step();
+    std::cout << "Calculating Reynolds: " << re << "\n";
+    std::ofstream stream(std::string("re") + std::to_string(re) + ".dat",
+                         std::ios::binary);
+    LidDrivenCavityLBM cavity;
+    cavity.init(256, re, 0.25 * 0.005);
+
+    stream.write((char*)cavity.vel_dim.data(),
+                 sizeof(float) * cavity.width * cavity.width * 2);
+    stream.write((char*)cavity.fdensity.data(),
+                 sizeof(float) * cavity.width * cavity.width);
+    for (int i = 0; i < 99; ++i)
+    {
+      std::cout << i << "\n";
+      for (int j = 0; j < 80; ++j)
+      {
+        cavity.step();
+      }
+      stream.write((char*)cavity.vel_dim.data(),
+                   sizeof(float) * cavity.width * cavity.width * 2);
+      stream.write((char*)cavity.fdensity.data(),
+                   sizeof(float) * cavity.width * cavity.width);
+    }
   }
 
-  std::ofstream out("out.dat", std::ios::binary);
-  out.write((char*)cavity.vel_dim.data(),
-            sizeof(float) * cavity.width * cavity.width * 2);
   return 0;
 }
