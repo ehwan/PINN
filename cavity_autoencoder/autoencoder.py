@@ -2,8 +2,7 @@
 
 import torch
 import numpy as np
-import os
-import struct
+import data_loader
 
 class CavityAutoEncoder(torch.nn.Module):
   def __init__(self):
@@ -72,67 +71,32 @@ class CavityAutoEncoder(torch.nn.Module):
     )
 
 
-def load_images( filename ):
-  print( 'loading ' + filename )
-  f = open( filename, 'rb' )
 
-  # 100 frames per file
-  ret = torch.zeros( (100, 3, 256, 256), dtype=torch.float32 )
-  for frame in range(100):
-    print( 'frame ' + str(frame) )
-    # vels
-    buffer = f.read( 4*2*256*256 )
-    vel = struct.unpack( 'ff'*256*256, buffer )
-    for y in range(256):
-      for x in range(256):
-        idx = y*256 + x
-        ret[frame, 0, y, x] = vel[idx*2]
-        ret[frame, 1, y, x] = vel[idx*2+1]
-    # density
-    buffer = f.read( 4*256*256 )
-    dens = struct.unpack( 'f'*256*256, buffer )
-    for y in range(256):
-      for x in range(256):
-        idx = y*256 + x
-        ret[frame, 2, y, x] = dens[idx]
+def main():
+  autoencoder = CavityAutoEncoder()
+  inputs = data_loader.load_file( 'trains/re100.dat' )
+  print( inputs.shape )
 
-  return ret
+  N = inputs.shape[0]
 
-def load_all_images():
-  directory = 'trains'
-  files = os.listdir(directory)
-  inputs = torch.zeros( (len(files), 101, 3, 256, 256), dtype=torch.float32 )
-  for i in range(len(files)):
-    inputs[i] = load_images( directory + '/' + files[i] )
-  return inputs.reshape( -1, 3, 256, 256 )
+  Epochs = 50
+  BatchSize = 20
+  optimizer = torch.optim.Adam( autoencoder.parameters(), lr=0.001 )
+  for epoch in range(Epochs):
+    print( 'Epoch: {}'.format(epoch) )
+    shuffled = inputs[ torch.randperm(N) ]
+    for batch in range(0, N, BatchSize):
+      x = shuffled[batch:batch+BatchSize]
+      print( 'train batch: ', x.shape )
+      latent = autoencoder.encoder( x )
+      decoded = autoencoder.decoder( latent )
+      loss = torch.nn.functional.mse_loss( decoded, x )
+      print( 'Loss: {}'.format(loss.item()) )
+      optimizer.zero_grad()
+      loss.backward()
+      optimizer.step()
 
-autoencoder = CavityAutoEncoder()
-inputs = load_images( 'trains/re100.dat' )
-print( inputs.shape )
+  torch.save( autoencoder.state_dict(), 're100ae.pt' )
 
-N = inputs.shape[0]
-
-Epochs = 50
-BatchSize = 20
-optimizer = torch.optim.Adam( autoencoder.parameters(), lr=0.001 )
-for epoch in range(Epochs):
-  print( 'Epoch: {}'.format(epoch) )
-  shuffled = inputs[ torch.randperm(N) ]
-  for batch in range(0, N, BatchSize):
-    x = shuffled[batch:batch+BatchSize]
-    print( 'train batch: ', x.shape )
-    latent = autoencoder.encoder( x )
-    decoded = autoencoder.decoder( latent )
-    loss = torch.nn.functional.mse_loss( decoded, x )
-    print( 'Loss: {}'.format(loss.item()) )
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
-
-torch.save( autoencoder.state_dict(), 're100ae.pt' )
-
-# test_input = torch.rand(1, 3, 256, 256)
-# latent = nn.encoder( test_input )
-# print( latent.shape )
-# decoded = nn.decoder( latent )
-# print( decoded.shape )
+if __name__ == '__main__':
+  main()
