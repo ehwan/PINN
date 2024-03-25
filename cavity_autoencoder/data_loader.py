@@ -2,14 +2,14 @@ import torch
 import os
 import struct
 
-# load all frames(100) from a file
-def load_file( filename ):
+# load first N (~100) frames from a file
+def load_file( filename, N=100 ):
   print( 'loading ' + filename )
   f = open( filename, 'rb' )
 
   # 100 frames per file
-  ret = torch.zeros( (100, 3, 256, 256), dtype=torch.float32 )
-  for frame in range(100):
+  ret = torch.zeros( (N, 3, 256, 256), dtype=torch.float32 )
+  for frame in range(N):
     print( 'frame ' + str(frame) )
     # vels
     buffer = f.read( 4*2*256*256 )
@@ -29,14 +29,14 @@ def load_file( filename ):
 
   return ret
 
-def load_files( files ):
-  ret = torch.zeros( (len(files), 100, 3, 256, 256), dtype=torch.float32 )
+def load_files( files, N=100 ):
+  ret = torch.zeros( (len(files), N, 3, 256, 256), dtype=torch.float32 )
   for i in range(len(files)):
-    ret[i] = load_file( files[i] )
+    ret[i] = load_file( files[i], N )
   return ret.reshape( -1, 3, 256, 256 )
 
-def load_directory( dirname ):
+def load_directory( dirname, N=100 ):
   files = os.listdir( dirname )
   for i in range(files):
     files[i] = dirname + '/' + files[i]
-  return load_files( files )
+  return load_files( files, N )
